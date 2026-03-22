@@ -53,7 +53,6 @@
     }
     header h1 { font-size: 1.2rem; margin: 0; font-weight: 500; }
 
-    /* IMPROVED HAMBURGER BUTTON - ENSURING VISIBILITY */
     .menu-btn {
       background: transparent;
       border: none;
@@ -65,17 +64,15 @@
       width: 30px;
       height: 20px;
       outline: none;
-      box-sizing: border-box;
     }
     .menu-btn span {
       display: block;
       height: 3px;
       width: 100%;
-      background-color: white; /* Visible on Purple */
+      background-color: white;
       border-radius: 4px;
     }
 
-    /* SLIDING SIDEBAR */
     .sidebar-overlay {
       position: fixed;
       inset: 0;
@@ -106,7 +103,6 @@
       justify-content: space-between;
       align-items: center;
       height: 56px;
-      box-sizing: border-box;
     }
 
     .sidebar-content { padding: 10px 0; }
@@ -192,6 +188,8 @@
     input, select { width: 100%; padding: 12px 0; margin-bottom: 16px; border: none; border-bottom: 1.5px solid var(--border); font-size: 16px; background: transparent; color: var(--text); }
     .modal-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 10px; }
     .modal-btn { background: transparent; border: none; color: var(--primary); font-weight: bold; padding: 8px; cursor: pointer; }
+    
+    .broker-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -237,7 +235,6 @@
     <input type="hidden" id="editIndex">
     <input type="date" id="tradeDate">
     <select id="brokerSelect"></select>
-    <input type="text" id="symbol" placeholder="Symbol" oninput="this.value = this.value.toUpperCase()">
     <select id="type"><option value="Profit">Profit (+)</option><option value="Loss">Loss (-)</option></select>
     <input type="number" id="amount" placeholder="Net Amount (₹)" inputmode="decimal">
     <div class="modal-actions">
@@ -252,16 +249,21 @@
     <h3 style="margin-top:0">Manage Brokers</h3>
     <div id="brokerList" style="margin-bottom: 20px;"></div>
     <input type="text" id="newBrokerName" placeholder="New Broker Name">
+    <button class="modal-btn" style="width:100%; border:1px solid var(--primary); margin-bottom:20px;" onclick="addNewBroker()">ADD NEW BROKER</button>
+    
+    <h4 style="margin: 0 0 10px 0;">Security Settings</h4>
+    <button class="modal-btn" style="width:100%; border:1px solid var(--primary);" onclick="changePassword()">CHANGE RESET PASSWORD</button>
+    
     <div class="modal-actions">
       <button class="modal-btn" onclick="document.getElementById('brokerModal').style.display='none'">CLOSE</button>
-      <button class="modal-btn" onclick="addNewBroker()">ADD NEW</button>
     </div>
   </div>
 </div>
 
 <script>
-  let trades = JSON.parse(localStorage.getItem('broker_trades_v11')) || [];
+  let trades = JSON.parse(localStorage.getItem('broker_trades_v12')) || [];
   let customBrokers = JSON.parse(localStorage.getItem('user_brokers')) || ["Zerodha", "Upstox", "Angel One", "Groww", "Dhan"];
+  let securityPass = localStorage.getItem('security_pass') || "1234";
   let isDarkMode = localStorage.getItem('dark_mode') === 'true';
   let pnlChart;
 
@@ -284,21 +286,34 @@
     if(pnlChart) render();
   }
 
-  // RESET LOGIC: PASSWORD + DOUBLE CONFIRMATION
   function resetData() {
     toggleSidebar(false);
     const password = prompt("Enter security password to Reset All Data:");
-    if (password === "1234") { // Default password
-      if (confirm("FIRST CONFIRMATION: Are you absolutely sure you want to delete everything?")) {
-        if (confirm("FINAL CONFIRMATION: This action is permanent. Delete all data?")) {
+    if (password === securityPass) {
+      if (confirm("FIRST CONFIRMATION: Are you absolutely sure?")) {
+        if (confirm("FINAL CONFIRMATION: Delete all data?")) {
           trades = [];
-          localStorage.removeItem('broker_trades_v11');
+          localStorage.removeItem('broker_trades_v12');
           render();
-          alert("All data has been wiped.");
+          alert("All data wiped.");
         }
       }
     } else {
-      alert("Incorrect Password! Access Denied.");
+      alert("Incorrect Password!");
+    }
+  }
+
+  function changePassword() {
+    const current = prompt("Enter current password:");
+    if (current === securityPass) {
+      const newPass = prompt("Enter new password:");
+      if (newPass && newPass.trim().length > 0) {
+        securityPass = newPass.trim();
+        localStorage.setItem('security_pass', securityPass);
+        alert("Password updated successfully!");
+      }
+    } else {
+      alert("Current password incorrect.");
     }
   }
 
@@ -311,7 +326,12 @@
 
   function addNewBroker() {
     const name = document.getElementById('newBrokerName').value.trim();
-    if (name && !customBrokers.includes(name)) { customBrokers.push(name); saveBrokers(); openBrokerManager(); document.getElementById('newBrokerName').value = ''; }
+    if (name && !customBrokers.includes(name)) { 
+      customBrokers.push(name); 
+      saveBrokers(); 
+      openBrokerManager(); 
+      document.getElementById('newBrokerName').value = ''; 
+    }
   }
 
   function removeBroker(index) {
@@ -319,9 +339,14 @@
     customBrokers.splice(index, 1); saveBrokers(); openBrokerManager();
   }
 
-  function saveBrokers() { localStorage.setItem('user_brokers', JSON.stringify(customBrokers)); populateBrokerDropdown(); }
+  function saveBrokers() { 
+    localStorage.setItem('user_brokers', JSON.stringify(customBrokers)); 
+    populateBrokerDropdown(); 
+  }
 
-  function populateBrokerDropdown() { document.getElementById('brokerSelect').innerHTML = customBrokers.map(b => `<option value="${b}">${b}</option>`).join(''); }
+  function populateBrokerDropdown() { 
+    document.getElementById('brokerSelect').innerHTML = customBrokers.map(b => `<option value="${b}">${b}</option>`).join(''); 
+  }
 
   function openModal(index = null) {
     populateBrokerDropdown();
@@ -331,14 +356,12 @@
       document.getElementById('editIndex').value = index;
       document.getElementById('tradeDate').value = t.date;
       document.getElementById('brokerSelect').value = t.broker;
-      document.getElementById('symbol').value = t.symbol;
       document.getElementById('type').value = t.amount >= 0 ? "Profit" : "Loss";
       document.getElementById('amount').value = Math.abs(t.amount);
     } else {
       document.getElementById('modalTitle').innerText = "Add Entry";
       document.getElementById('editIndex').value = "";
       document.getElementById('tradeDate').valueAsDate = new Date();
-      document.getElementById('symbol').value = "";
       document.getElementById('amount').value = "";
     }
     document.getElementById('modal').style.display = 'flex';
@@ -350,13 +373,12 @@
     const idx = document.getElementById('editIndex').value;
     const date = document.getElementById('tradeDate').value;
     const broker = document.getElementById('brokerSelect').value;
-    const symbol = document.getElementById('symbol').value;
     const type = document.getElementById('type').value;
     const amount = parseFloat(document.getElementById('amount').value);
-    if (!date || !symbol || isNaN(amount)) return;
-    const data = { date, broker, symbol, amount: type === 'Profit' ? amount : -amount };
+    if (!date || isNaN(amount)) return;
+    const data = { date, broker, amount: type === 'Profit' ? amount : -amount };
     if (idx !== "") trades[idx] = data; else trades.push(data);
-    localStorage.setItem('broker_trades_v11', JSON.stringify(trades));
+    localStorage.setItem('broker_trades_v12', JSON.stringify(trades));
     closeModal(); render();
   }
 
@@ -382,7 +404,7 @@
         dayTotal += t.amount; grandTotal += t.amount;
         const card = document.createElement('div'); card.className = `trade-card ${t.amount >= 0 ? 'profit' : 'loss'}`;
         card.onclick = () => openModal(t.idx);
-        card.innerHTML = `<div><strong>${t.symbol}</strong><br><small style="color:var(--sub-text)">${t.broker}</small></div><div style="font-weight:bold; color:${t.amount >= 0 ? 'var(--profit)' : 'var(--loss)'}">${t.amount >= 0 ? '+' : ''}₹${Math.abs(t.amount).toFixed(2)}</div>`;
+        card.innerHTML = `<div><strong>${t.broker}</strong><br><small style="color:var(--sub-text)">${date}</small></div><div style="font-weight:bold; color:${t.amount >= 0 ? 'var(--profit)' : 'var(--loss)'}">${t.amount >= 0 ? '+' : ''}₹${Math.abs(t.amount).toFixed(2)}</div>`;
         container.appendChild(card);
       });
       header.innerHTML = `<span>📅 ${date}</span> <span>Day: ₹${dayTotal.toFixed(2)}</span>`;
