@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json">
+  <title>PnL Pro Android</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #5e35b1;
+      --bg: #f4f4f6;
+      --card: #ffffff;
+      --profit: #2e7d32;
+      --loss: #d32f2f;
+      --text: #212121;
+      --header-text: white;
+      --sub-text: #757575;
+      --border: #ccc;
+      --sidebar-width: 280px;
+    }
+
+    body.dark-mode {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --text: #e0e0e0;
+      --sub-text: #b0b0b0;
+      --border: #444;
+    }
+
+    body { 
+      font-family: 'Roboto', sans-serif; 
+      margin: 0; 
+      background: var(--bg); 
+      color: var(--text); 
+      overflow-x: hidden;
+      padding-bottom: 100px;
+      transition: background 0.3s;
+    }
+    
+    header { 
+      background: var(--primary); 
+      color: var(--header-text); 
+      padding: 12px 16px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      position: sticky; 
+      top: 0; 
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 1.2rem; margin: 0; font-weight: 500; }
+
+    /* IMPROVED HAMBURGER BUTTON - ENSURING VISIBILITY */
+    .menu-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 30px;
+      height: 20px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .menu-btn span {
+      display: block;
+      height: 3px;
+      width: 100%;
+      background-color: white; /* Visible on Purple */
+      border-radius: 4px;
+    }
+
+    /* SLIDING SIDEBAR */
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      z-index: 2000;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      right: calc(-1 * var(--sidebar-width));
+      width: var(--sidebar-width);
+      height: 100%;
+      background: var(--card);
+      z-index: 2100;
+      transition: right 0.3s ease-out;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar.open { right: 0; }
+    
+    .sidebar-header {
+      padding: 12px 16px;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 56px;
+      box-sizing: border-box;
+    }
+
+    .sidebar-content { padding: 10px 0; }
+    .sidebar button {
+      width: 100%;
+      padding: 16px 20px;
+      text-align: left;
+      border: none;
+      background: transparent;
+      font-size: 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      cursor: pointer;
+    }
+
+    main { padding: 12px; }
+    .summary-card { 
+      background: var(--card); 
+      padding: 16px; 
+      border-radius: 8px; 
+      display: flex; 
+      justify-content: space-around; 
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .stat-box { text-align: center; }
+    .stat-label { font-size: 0.75rem; color: var(--sub-text); text-transform: uppercase; }
+    .stat-val { font-size: 1.1rem; font-weight: bold; display: block; margin-top: 4px; }
+    
+    .chart-container { 
+      background: var(--card); 
+      padding: 12px; 
+      border-radius: 8px; 
+      margin-bottom: 16px; 
+      height: 180px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    .day-header { 
+      padding: 12px 16px; 
+      font-weight: 500; 
+      font-size: 0.85rem; 
+      color: var(--sub-text); 
+      background: rgba(0,0,0,0.05); 
+      margin: 16px -12px 8px -12px; 
+      display: flex; 
+      justify-content: space-between; 
+    }
+    
+    .trade-card { 
+      background: var(--card); 
+      padding: 14px; 
+      border-radius: 4px; 
+      margin-bottom: 4px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-left: 4px solid #ccc;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .trade-card.profit { border-left-color: var(--profit); }
+    .trade-card.loss { border-left-color: var(--loss); }
+
+    .fab { 
+      position: fixed; 
+      bottom: 24px; 
+      right: 24px; 
+      background: var(--primary); 
+      color: white; 
+      border: none; 
+      width: 56px; 
+      height: 56px; 
+      border-radius: 28px; 
+      font-size: 24px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+      z-index: 100;
+    }
+
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 3000; }
+    .modal-content { background: var(--card); padding: 24px; border-radius: 8px; width: 85%; max-height: 80vh; overflow-y: auto; }
+    input, select { width: 100%; padding: 12px 0; margin-bottom: 16px; border: none; border-bottom: 1.5px solid var(--border); font-size: 16px; background: transparent; color: var(--text); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 10px; }
+    .modal-btn { background: transparent; border: none; color: var(--primary); font-weight: bold; padding: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PNL PRO</h1>
+  <button class="menu-btn" onclick="toggleSidebar(true)">
+    <span></span><span></span><span></span>
+  </button>
+</header>
+
+<div id="overlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+<div id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <span>Menu</span>
+    <button class="menu-btn" onclick="toggleSidebar(false)">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="sidebar-content">
+    <button id="darkModeBtn" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+    <button onclick="openBrokerManager()">⚙️ Manage Brokers</button>
+    <button onclick="exportToExcel()">📈 Export to Excel</button>
+    <div style="border-top: 1px solid var(--border); margin: 10px 0;"></div>
+    <button onclick="resetData()" style="color: var(--loss);">🗑️ Reset All Data</button>
+  </div>
+</div>
+
+<main>
+  <div class="summary-card">
+    <div class="stat-box"><span class="stat-label">Total P&L</span><span id="totalPnL" class="stat-val">₹0.00</span></div>
+    <div class="stat-box"><span class="stat-label">Trades</span><span id="tradeCount" class="stat-val">0</span></div>
+  </div>
+  <div class="chart-container"><canvas id="pnlChart"></canvas></div>
+  <div id="dayWiseContainer"></div>
+</main>
+
+<button class="fab" onclick="openModal()">+</button>
+
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle" style="margin-top:0">Add Entry</h3>
+    <input type="hidden" id="editIndex">
+    <input type="date" id="tradeDate">
+    <select id="brokerSelect"></select>
+    <input type="text" id="symbol" placeholder="Symbol" oninput="this.value = this.value.toUpperCase()">
+    <select id="type"><option value="Profit">Profit (+)</option><option value="Loss">Loss (-)</option></select>
+    <input type="number" id="amount" placeholder="Net Amount (₹)" inputmode="decimal">
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeModal()">CANCEL</button>
+      <button class="modal-btn" onclick="saveTrade()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<div id="brokerModal" class="modal">
+  <div class="modal-content">
+    <h3 style="margin-top:0">Manage Brokers</h3>
+    <div id="brokerList" style="margin-bottom: 20px;"></div>
+    <input type="text" id="newBrokerName" placeholder="New Broker Name">
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="document.getElementById('brokerModal').style.display='none'">CLOSE</button>
+      <button class="modal-btn" onclick="addNewBroker()">ADD NEW</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let trades = JSON.parse(localStorage.getItem('broker_trades_v11')) || [];
+  let customBrokers = JSON.parse(localStorage.getItem('user_brokers')) || ["Zerodha", "Upstox", "Angel One", "Groww", "Dhan"];
+  let isDarkMode = localStorage.getItem('dark_mode') === 'true';
+  let pnlChart;
+
+  function toggleSidebar(open) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    if (open) { sidebar.classList.add('open'); overlay.style.display = 'block'; } 
+    else { sidebar.classList.remove('open'); overlay.style.display = 'none'; }
+  }
+
+  function toggleDarkMode() {
+    isDarkMode = !isDarkMode;
+    applyDarkMode();
+    localStorage.setItem('dark_mode', isDarkMode);
+  }
+
+  function applyDarkMode() {
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    document.getElementById('darkModeBtn').innerText = isDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode";
+    if(pnlChart) render();
+  }
+
+  // RESET LOGIC: PASSWORD + DOUBLE CONFIRMATION
+  function resetData() {
+    toggleSidebar(false);
+    const password = prompt("Enter security password to Reset All Data:");
+    if (password === "1234") { // Default password
+      if (confirm("FIRST CONFIRMATION: Are you absolutely sure you want to delete everything?")) {
+        if (confirm("FINAL CONFIRMATION: This action is permanent. Delete all data?")) {
+          trades = [];
+          localStorage.removeItem('broker_trades_v11');
+          render();
+          alert("All data has been wiped.");
+        }
+      }
+    } else {
+      alert("Incorrect Password! Access Denied.");
+    }
+  }
+
+  function openBrokerManager() {
+    toggleSidebar(false);
+    const list = document.getElementById('brokerList');
+    list.innerHTML = customBrokers.map((b, i) => `<div class="broker-item"><span>${b}</span><button style="color:red; background:none; border:none; font-size:1.2rem;" onclick="removeBroker(${i})">🗑️</button></div>`).join('');
+    document.getElementById('brokerModal').style.display = 'flex';
+  }
+
+  function addNewBroker() {
+    const name = document.getElementById('newBrokerName').value.trim();
+    if (name && !customBrokers.includes(name)) { customBrokers.push(name); saveBrokers(); openBrokerManager(); document.getElementById('newBrokerName').value = ''; }
+  }
+
+  function removeBroker(index) {
+    if (customBrokers.length <= 1) return;
+    customBrokers.splice(index, 1); saveBrokers(); openBrokerManager();
+  }
+
+  function saveBrokers() { localStorage.setItem('user_brokers', JSON.stringify(customBrokers)); populateBrokerDropdown(); }
+
+  function populateBrokerDropdown() { document.getElementById('brokerSelect').innerHTML = customBrokers.map(b => `<option value="${b}">${b}</option>`).join(''); }
+
+  function openModal(index = null) {
+    populateBrokerDropdown();
+    if (index !== null) {
+      const t = trades[index];
+      document.getElementById('modalTitle').innerText = "Edit Entry";
+      document.getElementById('editIndex').value = index;
+      document.getElementById('tradeDate').value = t.date;
+      document.getElementById('brokerSelect').value = t.broker;
+      document.getElementById('symbol').value = t.symbol;
+      document.getElementById('type').value = t.amount >= 0 ? "Profit" : "Loss";
+      document.getElementById('amount').value = Math.abs(t.amount);
+    } else {
+      document.getElementById('modalTitle').innerText = "Add Entry";
+      document.getElementById('editIndex').value = "";
+      document.getElementById('tradeDate').valueAsDate = new Date();
+      document.getElementById('symbol').value = "";
+      document.getElementById('amount').value = "";
+    }
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+  function saveTrade() {
+    const idx = document.getElementById('editIndex').value;
+    const date = document.getElementById('tradeDate').value;
+    const broker = document.getElementById('brokerSelect').value;
+    const symbol = document.getElementById('symbol').value;
+    const type = document.getElementById('type').value;
+    const amount = parseFloat(document.getElementById('amount').value);
+    if (!date || !symbol || isNaN(amount)) return;
+    const data = { date, broker, symbol, amount: type === 'Profit' ? amount : -amount };
+    if (idx !== "") trades[idx] = data; else trades.push(data);
+    localStorage.setItem('broker_trades_v11', JSON.stringify(trades));
+    closeModal(); render();
+  }
+
+  function exportToExcel() {
+    toggleSidebar(false);
+    if (trades.length === 0) return alert("No trades to export.");
+    const ws = XLSX.utils.json_to_sheet(trades);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Trades");
+    XLSX.writeFile(wb, `Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  }
+
+  function render() {
+    const container = document.getElementById('dayWiseContainer'); container.innerHTML = '';
+    const groups = trades.reduce((acc, t, idx) => { acc[t.date] = acc[t.date] || []; acc[t.date].push({...t, idx}); return acc; }, {});
+    const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
+    let grandTotal = 0;
+    sortedDates.forEach(date => {
+      let dayTotal = 0;
+      const header = document.createElement('div'); header.className = 'day-header';
+      container.appendChild(header);
+      groups[date].forEach(t => {
+        dayTotal += t.amount; grandTotal += t.amount;
+        const card = document.createElement('div'); card.className = `trade-card ${t.amount >= 0 ? 'profit' : 'loss'}`;
+        card.onclick = () => openModal(t.idx);
+        card.innerHTML = `<div><strong>${t.symbol}</strong><br><small style="color:var(--sub-text)">${t.broker}</small></div><div style="font-weight:bold; color:${t.amount >= 0 ? 'var(--profit)' : 'var(--loss)'}">${t.amount >= 0 ? '+' : ''}₹${Math.abs(t.amount).toFixed(2)}</div>`;
+        container.appendChild(card);
+      });
+      header.innerHTML = `<span>📅 ${date}</span> <span>Day: ₹${dayTotal.toFixed(2)}</span>`;
+    });
+    document.getElementById('totalPnL').innerText = `₹${grandTotal.toFixed(2)}`;
+    document.getElementById('totalPnL').style.color = grandTotal >= 0 ? 'var(--profit)' : 'var(--loss)';
+    document.getElementById('tradeCount').innerText = trades.length;
+    updateChart();
+  }
+
+  function updateChart() {
+    const ctx = document.getElementById('pnlChart').getContext('2d');
+    const sorted = [...trades].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let run = 0; const points = sorted.map(t => run += t.amount);
+    if (pnlChart) pnlChart.destroy();
+    pnlChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: sorted.map(t => t.date.slice(5)), datasets: [{ data: points, borderColor: '#7e57c2', tension: 0.4, fill: true, backgroundColor: isDarkMode ? 'rgba(126, 87, 194, 0.1)' : 'rgba(94, 53, 177, 0.1)', pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: isDarkMode ? '#444' : '#e0e0e0' }, ticks: { color: isDarkMode ? '#b0b0b0' : '#757575' } } } }
+    });
+  }
+
+  applyDarkMode(); render();
+</script>
+</body>
+</html>
